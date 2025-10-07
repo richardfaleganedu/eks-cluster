@@ -23,10 +23,6 @@ output "aws_load_balancer_controller_role_arn" {
   value       = aws_iam_role.aws_load_balancer_controller.arn
 }
 
-output "cluster_autoscaler_role_arn" {
-  description = "IAM role ARN for Cluster Autoscaler"
-  value       = aws_iam_role.cluster_autoscaler.arn
-}
 
 output "ebs_csi_driver_role_arn" {
   description = "IAM role ARN for EBS CSI Driver"
@@ -36,4 +32,34 @@ output "ebs_csi_driver_role_arn" {
 output "oidc_provider_arn" {
   description = "ARN of the OIDC provider"
   value       = aws_iam_openid_connect_provider.cluster.arn
+}
+
+output "vpc_id" {
+  description = "VPC ID"
+  value       = aws_vpc.main.id
+}
+
+output "private_subnet_ids" {
+  description = "Private subnet IDs"
+  value       = aws_subnet.private[*].id
+}
+
+output "public_subnet_ids" {
+  description = "Public subnet IDs"
+  value       = aws_subnet.public[*].id
+}
+
+output "nat_gateway_ids" {
+  description = "NAT Gateway IDs"
+  value       = aws_nat_gateway.main[*].id
+}
+
+output "github_actions_role_arn" {
+  description = "IAM role ARN for GitHub Actions"
+  value       = aws_iam_role.github_actions.arn
+}
+
+output "github_actions_oidc_provider_arn" {
+  description = "GitHub Actions OIDC Provider ARN"
+  value       = aws_iam_openid_connect_provider.github_actions.arn
 }

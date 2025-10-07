@@ -1,0 +1,6 @@
+apiVersion: v2
+name: dotnet-demo
+description: CentralReach Interview Demo - .NET API on EKS
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

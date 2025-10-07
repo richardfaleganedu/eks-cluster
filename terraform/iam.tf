@@ -177,14 +177,14 @@ resource "aws_iam_role_policy_attachment" "cluster_autoscaler" {
 # ==================================
 
 # Download the IAM policy document
-data "http" "aws_load_balancer_controller_policy" {
-  url = "https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.0/docs/install/iam_policy.json"
+data "local_file" "aws_load_balancer_controller_policy" {
+  filename = abspath("${path.module}/../iam-policy.json")
 }
 
 resource "aws_iam_policy" "aws_load_balancer_controller" {
-  name        = "${var.cluster_name}-aws-load-balancer-controller"
+  name        = "${var.cluster_name}-aws-load_balancer-controller"
   description = "Policy for AWS Load Balancer Controller"
-  policy      = data.http.aws_load_balancer_controller_policy.response_body
+  policy      = data.local_file.aws_load_balancer_controller_policy.content
 }
 
 # IRSA role for the controller
@@ -268,4 +268,116 @@ resource "aws_iam_role" "ebs_csi_driver" {
 resource "aws_iam_role_policy_attachment" "ebs_csi_driver" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
   role       = aws_iam_role.ebs_csi_driver.name
+}
+
+
+# ==================================
+# GitHub Actions OIDC Provider
+# ==================================
+
+resource "aws_iam_openid_connect_provider" "github_actions" {
+  url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = [
+    "sts.amazonaws.com"
+  ]
+
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+    "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
+  ]
+
+  tags = {
+    Name = "github-actions-oidc"
+  }
+}
+
+# ==================================
+# GitHub Actions IAM Role
+# ==================================
+
+data "aws_iam_policy_document" "github_actions_assume_role" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github_actions.arn]
+    }
+
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_username}/${var.github_repo}:*"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_actions" {
+  name               = "${var.cluster_name}-github-actions"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_assume_role.json
+
+  tags = {
+    Name = "${var.cluster_name}-github-actions"
+  }
+}
+
+# GitHub Actions Permissions
+data "aws_iam_policy_document" "github_actions_permissions" {
+  # ECR permissions
+  statement {
+    effect = "Allow"
+    actions = [
+      "ecr:GetAuthorizationToken",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:PutImage",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload"
+    ]
+    resources = ["*"]
+  }
+
+  # EKS permissions
+  statement {
+    effect = "Allow"
+    actions = [
+      "eks:DescribeCluster",
+      "eks:ListClusters"
+    ]
+    resources = ["*"]
+  }
+
+  # Read-only EC2 (for kubectl to work)
+  statement {
+    effect = "Allow"
+    actions = [
+      "ec2:DescribeInstances",
+      "ec2:DescribeSecurityGroups",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeVpcs"
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "github_actions" {
+  name        = "${var.cluster_name}-github-actions"
+  description = "Policy for GitHub Actions CI/CD"
+  policy      = data.aws_iam_policy_document.github_actions_permissions.json
+}
+
+resource "aws_iam_role_policy_attachment" "github_actions" {
+  policy_arn = aws_iam_policy.github_actions.arn
+  role       = aws_iam_role.github_actions.name
 }

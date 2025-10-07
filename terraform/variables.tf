@@ -16,11 +16,20 @@ variable "cluster_endpoint_public_access_cidrs" {
   default     = ["0.0.0.0/0"] # Change this in production!
 }
 
+
+
+variable "vpc_cidr" {
+  description = "CIDR block for VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
 variable "region" {
   description = "AWS region"
   type        = string
   default     = "us-east-1"
 }
+
 
 variable "node_group_desired_size" {
   description = "Desired number of worker nodes"
@@ -50,4 +59,16 @@ variable "node_disk_size" {
   description = "Disk size in GB for worker nodes"
   type        = number
   default     = 100
+}
+
+variable "github_username" {
+  description = "Your GitHub username"
+  type        = string
+  default     = "YOUR_USERNAME" # CHANGE THIS!
+}
+
+variable "github_repo" {
+  description = "GitHub repository name"
+  type        = string
+  default     = "centralreach-eks-demo"
 }
