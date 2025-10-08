@@ -2,23 +2,25 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ .Chart.Name }}
+  name: {{ include "dotnet-demo.fullname" . }}
+  {{- with .Values.ingress.annotations }}
   annotations:
-    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
-  {{- range .Values.ingress.hosts }}
-  - http:
-      paths:
-      {{- range .paths }}
-      - path: {{ .path }}
-        pathType: {{ .pathType }}
-        backend:
-          service:
-            name: {{ $.Chart.Name }}
-            port:
-              number: {{ $.Values.service.port }}
-      {{- end }}
-  {{- end }}
+    {{- range .Values.ingress.hosts }}
+    - http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "dotnet-demo.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
 {{- end }}

@@ -1,59 +1,21 @@
-# apiVersion: apps/v1
-# kind: Deployment
-# metadata:
-#   name: {{ .Chart.Name }}
-#   labels:
-#     app: {{ .Chart.Name }}
-# spec:
-#   replicas: {{ .Values.replicaCount }}
-#   selector:
-#     matchLabels:
-#       app: {{ .Chart.Name }}
-#   template:
-#     metadata:
-#       labels:
-#         app: {{ .Chart.Name }}
-#     spec:
-#       containers:
-#       - name: {{ .Chart.Name }}
-#         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-#         imagePullPolicy: {{ .Values.image.pullPolicy }}
-#         ports:
-#         - containerPort: {{ .Values.service.targetPort }}
-#         livenessProbe:
-#           httpGet:
-#             path: /health
-#             port: {{ .Values.service.targetPort }}
-#           initialDelaySeconds: 10
-#           periodSeconds: 10
-#         readinessProbe:
-#           httpGet:
-#             path: /health
-#             port: {{ .Values.service.targetPort }}
-#           initialDelaySeconds: 5
-#           periodSeconds: 5
-#         resources:
-#           {{- toYaml .Values.resources | nindent 10 }}
-
-# deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Chart.Name }}
+  name: {{ include "dotnet-demo.fullname" . }}
   labels:
-    app: {{ .Chart.Name }}
+    app: {{ include "dotnet-demo.name" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ .Chart.Name }}
+      app: {{ include "dotnet-demo.name" . }}
   template:
     metadata:
       labels:
-        app: {{ .Chart.Name }}
+        app: {{ include "dotnet-demo.name" . }}
     spec:
       containers:
-      - name: {{ .Chart.Name }}
+      - name: {{ include "dotnet-demo.name" . }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
