@@ -37,4 +37,4 @@ env:
   - name: APP_VERSION
     value: "1.0.2"
   - name: APP_MISSION
-    value: "CentralReach: commits to empowering people with autism and related intellectual and developmental disabilities (IDDs) and supporting those who serve them"
+    value: "CentralReach: Commits to empowering people with autism and related intellectual and developmental disabilities (IDDs) and supporting those who serve them"
