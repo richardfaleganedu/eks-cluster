@@ -1,0 +1,126 @@
+name: Deploy (from PR)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [main]
+    paths:
+      - "app/**"
+      - "helm/**"
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write # for auto-merge
+
+concurrency:
+  group: deploy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+  # Demo messages (can also live in values.yaml)
+  APP_MESSAGE: "Working as Designed ✅"
+  APP_VERSION: "1.0.2"
+  APP_MISSION: "CentralReach: commits to empowering people with autism and related intellectual and developmental disabilities (IDDs) and supporting those who serve them"
+
+jobs:
+  deploy:
+    name: Deploy PR to cluster
+    runs-on: ubuntu-latest
+    environment: prod # <-- requires approval in repo settings
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push image (PR-tag)
+        id: build
+        working-directory: ./app/dotnet-demo
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPO: ${{ env.ECR_REPOSITORY }}
+          TAG: pr-${{ github.event.pull_request.number || 'manual' }}-${{ github.sha }}
+        run: |
+          docker build -t $REGISTRY/$REPO:$TAG .
+          docker push $REGISTRY/$REPO:$TAG
+          echo "image=$REGISTRY/$REPO:$TAG" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name "${{ env.EKS_CLUSTER_NAME }}" \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Helm upgrade --install
+        working-directory: ./helm/dotnet-demo
+        run: |
+          helm upgrade --install dotnet-demo . \
+            --set image.repository=${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }} \
+            --set image.tag=${{ steps.build.outputs.tag }} \
+            --set env[0].name=APP_MESSAGE --set env[0].value="${{ env.APP_MESSAGE }}" \
+            --set env[1].name=APP_VERSION --set env[1].value="${{ env.APP_VERSION }}" \
+            --set env[2].name=APP_MISSION --set env[2].value="${{ env.APP_MISSION }}" \
+            --namespace default --create-namespace \
+            --wait --timeout 10m
+
+      - name: Show app URL
+        id: url
+        run: |
+          for i in {1..20}; do
+            APP_URL=$(kubectl get ingress dotnet-demo -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            [ -n "$APP_URL" ] && break
+            echo "Waiting for Ingress... ($i/20)"; sleep 15
+          done
+          if [ -z "$APP_URL" ]; then
+            echo "App URL pending"; exit 1
+          fi
+          echo "APP_URL=http://$APP_URL" >> $GITHUB_OUTPUT
+          echo "SWAGGER=http://$APP_URL/swagger" >> $GITHUB_OUTPUT
+          echo "HEALTH=http://$APP_URL/health" >> $GITHUB_OUTPUT
+          echo "App URL: http://$APP_URL"
+          echo "Swagger: http://$APP_URL/swagger"
+
+      - name: Comment details on PR
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = core.getInput('APP_URL', {required:false}) || process.env.APP_URL;
+            const swagger = core.getInput('SWAGGER', {required:false}) || process.env.SWAGGER;
+            const health = core.getInput('HEALTH', {required:false}) || process.env.HEALTH;
+            const body = `### 🚀 Deployed from PR
+            - URL: ${url}
+            - Swagger: ${swagger}
+            - Health: ${health}
+
+            Image: \`${{ steps.build.outputs.image }}\``;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+      - name: Auto-merge PR (squash)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: peter-evans/merge-pull-request@v3
+        with:
+          merge-method: squash
+          commit-title: "Deploy succeeded → squash-merge PR #${{ github.event.pull_request.number }}"

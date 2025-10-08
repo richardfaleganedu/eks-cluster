@@ -1,0 +1,55 @@
+name: App Plan (Helm)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "helm/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Helm lint
+        working-directory: ./helm/dotnet-demo
+        run: |
+          helm lint . -f values.yaml
+
+      - name: Render manifests (helm template)
+        id: render
+        working-directory: ./helm/dotnet-demo
+        run: |
+          helm template dotnet-demo . -f values.yaml > /tmp/manifest.yaml
+          echo "manifest=/tmp/manifest.yaml" >> $GITHUB_OUTPUT
+
+      - name: Upload rendered manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-manifests
+          path: /tmp/manifest.yaml
+
+      - name: Comment summary on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body =
+              `### ✅ Helm Plan Succeeded
+              - Chart: \`helm/dotnet-demo\`
+              - Lint: **OK**
+              - Rendered manifests attached as artifact **helm-manifests**.
+              
+              > Next: Approve the **Deploy (from PR)** workflow (requires environment approval) to roll this to the cluster.`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
