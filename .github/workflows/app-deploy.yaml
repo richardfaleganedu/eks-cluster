@@ -68,11 +68,9 @@ jobs:
         working-directory: ./helm/dotnet-demo
         run: |
           helm upgrade --install dotnet-demo . \
+            -f values.yaml \
             --set image.repository=${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }} \
             --set image.tag=${{ github.sha }} \
-            --set-string 'env[0].name=APP_MESSAGE' --set-string 'env[0].value=${{ env.APP_MESSAGE }}' \
-            --set-string 'env[1].name=APP_VERSION' --set-string 'env[1].value=${{ env.APP_VERSION }}' \
-            --set-string 'env[2].name=APP_MISSION' --set-string 'env[2].value=${{ env.APP_MISSION }}' \
             --namespace default --create-namespace \
             --wait --timeout 10m
 
