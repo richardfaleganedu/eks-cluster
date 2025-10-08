@@ -4,7 +4,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     var mission = Environment.GetEnvironmentVariable("APP_MISSION")
-        ?? "CentralReach: commits to empowering people with autism and related intellectual and developmental disabilities (IDDs) and supporting those who serve them";
+        ?? "CentralReach: Commits to empowering people with autism and related intellectual and developmental disabilities (IDDs) and supporting those who serve them";
 
     c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
