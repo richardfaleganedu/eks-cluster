@@ -20,9 +20,6 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
-  APP_MESSAGE: "Working as Designed ✅"
-  APP_VERSION: "1.0.2"
-  APP_MISSION: "CentralReach: commits to empowering people with autism and related intellectual and developmental disabilities (IDDs) and supporting those who serve them"
 
 jobs:
   deploy:
